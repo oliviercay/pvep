@@ -11,6 +11,9 @@ import pprint
 
 
 class SetOfParliamentMembers:
+
+    ALL_REGISTERED_PARTIES = [] # This is a class attribute
+
     def __init__(self, name):
         self.name = name
 
@@ -50,18 +53,36 @@ class SetOfParliamentMembers:
     def __gt__(self, other):
         return self.number_of_mps > other.number_of_mps
 
-    # The following 2 methods are a way to simulate a calculated attribute
-    # (attribute 'number_of_mps' is calculated from attribute 'seld.dataframe')
-    # There is a much better way to do it, using decorator '@property'
-    def __getattr__(self, attr):
-        if attr == "number_of_mps": ##todo: faire la version avec @property
-            return len(self.dataframe)
+    @property
+    def number_of_mps(self):
+        return len(self.dataframe)
 
-    def __setattr__(self, attr, value):
-        if attr == "number_of_mps":
-            raise Exception("You can not set the number of MPs!")
-        self.__dict__[attr] = value ## todo: c'est l'occasion de parler de __dict__ dans le cours ;)
-    
+    @number_of_mps.setter
+    def number_of_mps(self, value):
+        raise Exception("You can not set the number of MPs!")
+
+    @classmethod
+    def _register_parties(cl, parties):
+        cl.ALL_REGISTERED_PARTIES = cl._group_two_lists_of_parties(cl.ALL_REGISTERED_PARTIES, list(parties))
+
+    @staticmethod
+    def _group_two_lists_of_parties(original, new):
+        return list(set(original + new)) # This line drop duplicates in the list 'original + new'
+
+    @classmethod
+    def get_all_registered_parties(cl):
+        return cl.ALL_REGISTERED_PARTIES
+
+    def number_mp_by_party(self):
+        data = self.dataframe
+
+        result = {}
+        for party in self.get_all_registered_parties():
+            mps_of_this_party = data[data["parti_ratt_financier"] == party]
+            result[party] = len(mps_of_this_party)
+
+        return result
+
     def __add__(self, other):
         if not isinstance(other, SetOfParliamentMembers):
             raise Exception("Can not add a SetOfParliamentMember with an object of type {}".format(type(other)))
@@ -74,6 +95,7 @@ class SetOfParliamentMembers:
         s.data_from_dataframe(df)
         return s
 
+
     def __radd__(self, other): ## todo: l'implementation de cette methode ne suit a mon avis pas les bonnes pratiques
         return self
 
@@ -82,6 +104,9 @@ class SetOfParliamentMembers:
 
     def data_from_csv(self, csv_file):
         self.dataframe = pd.read_csv(csv_file, sep=";")
+        parties = self.dataframe["parti_ratt_financier"].dropna().unique()
+        print(parties,type(parties))
+        self._register_parties(parties)
 
     def data_from_dataframe(self, dataframe):
         self.dataframe = dataframe
@@ -169,6 +194,8 @@ def launch_analysis(data_file, by_party = False, info = False, displaynames = Fa
         s = sum(parties_by_size[0:groupfirstNumber])
 
         s.display_chart()
+
+    pprint.pprint(sopm.number_mp_by_party())
 
 if __name__ == "__main__":
     launch_analysis('current_mps.csv')
