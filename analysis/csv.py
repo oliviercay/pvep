@@ -8,7 +8,15 @@ matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pprint
+import datetime as dt
 
+
+AGE_COLUMN_NAME = "age"                 # Name of the new column (containing the age of the MP)
+                                        # to create in the dataframe
+AGE_YEARS_COLUMN_NAME = "age_in_years"
+BIRTH_COLUMN_NAME = "birth"
+
+MINIMUM_MP_AGE = 18
 
 class SetOfParliamentMembers:
 
@@ -105,7 +113,6 @@ class SetOfParliamentMembers:
     def data_from_csv(self, csv_file):
         self.dataframe = pd.read_csv(csv_file, sep=";")
         parties = self.dataframe["parti_ratt_financier"].dropna().unique()
-        print(parties,type(parties))
         self._register_parties(parties)
 
     def data_from_dataframe(self, dataframe):
@@ -147,9 +154,68 @@ class SetOfParliamentMembers:
 
         return result
 
+    @staticmethod
+    def display_histogram(values):
+        fig, ax = plt.subplots()
+        ax.hist(values, bins = 20)
+        plt.title("Ages ({} MPs)".format(len(values)))
+        plt.show()
+
+    def _compute_age_column(self):
+        now = dt.datetime.now()
+        data = self.dataframe
+
+        # In data, the column "date_naissance"  still contains string (ex:"1945-08-10")
+        # We first have to convert this to a column of type datetime.
+        if not BIRTH_COLUMN_NAME in data.columns:
+            data[BIRTH_COLUMN_NAME] = \
+                data["date_naissance"].apply(lambda string: dt.datetime.strptime(string,"%Y-%m-%d"))
+
+        if not AGE_COLUMN_NAME in data.columns:
+            data[AGE_COLUMN_NAME] = data[BIRTH_COLUMN_NAME].apply(lambda date: now-date)
+
+        # Here is an other way to fill a column of a dataframe (less elegant than the previous ones!):
+        new_column = []
+        for age in data[AGE_COLUMN_NAME]:
+            # age is of type datetime.timedelta (because it was
+            # calculated from a difference between two dates)
+            # Here, we want to convert it to an integer containing
+            # the the age, expressed in years.
+            age_in_years = int(age.days / 365)
+            new_column += [age_in_years]
+        data[AGE_YEARS_COLUMN_NAME] = new_column
+
+    def split_by_age(self, age_split):
+        data = self.dataframe
+        self._compute_age_column()
+        self.display_histogram(data[AGE_YEARS_COLUMN_NAME].values)
+
+        result = {}
+
+        if age_split < MINIMUM_MP_AGE:
+            categ = "Under (or equal) {} years old".format(MINIMUM_MP_AGE)
+            s = SetOfParliamentMembers(categ)
+            s.data_from_dataframe(data)
+            result = {categ : s}
+
+        else:
+            categ1 = "Under (or equal) {} years old".format(age_split)
+            categ2 = "Over {} years old".format(age_split)
+            s1, s2 = SetOfParliamentMembers(categ1), SetOfParliamentMembers(categ2)
+            condition = data[AGE_YEARS_COLUMN_NAME] <= age_split
+            data1 = data[condition]
+            data2 = data[~condition]
+            s1.data_from_dataframe(data1)
+            s2.data_from_dataframe(data2)
+            result = {
+                categ1 : s1,
+                categ2 : s2
+            }
+
+        return result
 
 def launch_analysis(data_file, by_party = False, info = False, displaynames = False,
-                    searchname = None, index = None, groupfirst = None):
+                    searchname = None, index = None, groupfirst = None, by_age = None):
     sopm = SetOfParliamentMembers("All MPs")
     sopm.data_from_csv(os.path.join("data",data_file))
     sopm.display_chart()
@@ -195,7 +261,17 @@ def launch_analysis(data_file, by_party = False, info = False, displaynames = Fa
 
         s.display_chart()
 
-    pprint.pprint(sopm.number_mp_by_party())
+    if by_age is not None:
+        by_age = int(by_age)  # by_age was still a string, passed by the command line
+        for age_group, s in sopm.split_by_age(by_age).items():
+            print()
+            print("-" * 50)
+            print(age_group + ":")
+            s.display_chart()
+            print()
+            print("{} : Distribution by party:".format(age_group))
+            print()
+            pprint.pprint(s.number_mp_by_party())
 
 if __name__ == "__main__":
     launch_analysis('current_mps.csv')

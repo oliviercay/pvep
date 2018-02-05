@@ -4,6 +4,7 @@ import analysis.xml as x_an
 import analysis.csv as c_an
 import argparse
 import logging as lg
+import re
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
@@ -17,6 +18,7 @@ def parse_arguments():
     parser.add_argument("-I","--index", help="""displays information about the Ith mp""")
     parser.add_argument("-g","--groupfirst", help="""displays a graph groupping all the 'g'
         biggest political parties""")
+    parser.add_argument("-a","--byage", help="""displays a graph for the MPs splitted between those who are over and those who are under the value of --byage""")
     return parser.parse_args()
 
 if __name__ == '__main__':
@@ -25,18 +27,22 @@ if __name__ == '__main__':
         lg.basicConfig(level=lg.DEBUG)
     try:
         datafile = args.datafile
-        extension = args.extension
         if not datafile :
             raise Warning('You must indicate a datafile!')
-        elif not extension:
-            raise Warning('You must indicate an extension')
         else:
+            e = re.search(r'^.+\.(\D{3})$', args.datafile)
+            try:
+                extension = e.group(1)
+            except:
+                raise Warning('The file name is incorrect')                  
             try:
                 if extension == 'xml':
                     x_an.launch_analysis(datafile)
                 elif extension == 'csv':
                     c_an.launch_analysis(datafile, args.byparty, args.info, args.displaynames, 
-                        args.searchname, args.index, args.groupfirst)                    
+                        args.searchname, args.index, args.groupfirst, args.byage) 
+                else:
+                    raise Warning('The extension must be xml or csv')                 
             except FileNotFoundError as e:
                 lg.error("Ow :( The file was not found.")
             finally:
