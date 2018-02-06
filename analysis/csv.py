@@ -25,6 +25,17 @@ class SetOfParliamentMembers:
     def __init__(self, name):
         self.name = name
 
+    def __iter__(self):
+        self.iterator_state = 0
+        return self
+
+    def __next__(self):
+        if self.iterator_state >= len(self):
+            raise StopIteration()
+        result = self[self.iterator_state]
+        self.iterator_state += 1
+        return result
+
     def __repr__(self):
         return "SetOfParliamentMember: {} members".format(len(self.dataframe))
 
@@ -41,13 +52,13 @@ class SetOfParliamentMembers:
         data = self.dataframe
         try:
             intIndex = int(index)
-            result = dict(data.iloc[intIndex - 1])
+            result = dict(data.iloc[intIndex])
         except ValueError:
             raise Exception("Wrong index")
         except:
             if intIndex >= len(self.dataframe):
                 raise Exception("There are only {} MPs!".format(len(self.dataframe)))
-        if intIndex < 1:
+        if intIndex < 0:
             raise Exception("Please select a positive index")
 
         return result
@@ -272,6 +283,9 @@ def launch_analysis(data_file, by_party = False, info = False, displaynames = Fa
             print("{} : Distribution by party:".format(age_group))
             print()
             pprint.pprint(s.number_mp_by_party())
+
+#    for mp in sopm:
+#        print(mp["nom"], mp["emails"])
 
 if __name__ == "__main__":
     launch_analysis('current_mps.csv')
